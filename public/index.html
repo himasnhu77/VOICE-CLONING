@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Multi-Agent AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0d0d0f;
+  --panel: #13131a;
+  --border: #1e1e2e;
+  --ink: #cdd6f4;
+  --muted: #6c7086;
+  --surface: #181825;
+  --plan-c: #89b4fa;
+  --code-c: #a6e3a1;
+  --vision-c: #f5c2e7;
+  --review-c: #fab387;
+  --done-c: #cba6f7;
+  --memory-c: #f9e2af;
+  --user-bg: #1e1e2e;
+  --radius: 14px;
+  --tts-c: #94e2d5;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+body {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg);
+  color: var(--ink);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body::before {
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(137,180,250,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(137,180,250,0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events:none;z-index:0;
+}
+
+/* ── Header ─────────────────────────── */
+header {
+  display:flex;align-items:center;justify-content:space-between;
+  padding: 14px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink:0;
+  position:relative;z-index:10;
+  gap:12px;
+}
+
+.logo {
+  font-family:'Syne',sans-serif;
+  font-size:17px;font-weight:800;
+  display:flex;align-items:center;gap:10px;
+  letter-spacing:-0.5px;
+}
+
+.logo-badge {
+  font-size:9px;letter-spacing:2px;font-weight:700;
+  background:linear-gradient(135deg,var(--plan-c),var(--done-c));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  border:1px solid var(--border);
+  padding:3px 8px;border-radius:20px;
+  font-family:'JetBrains Mono',monospace;
+}
+
+.agent-pills {
+  display:flex;gap:6px;flex-wrap:wrap;
+}
+
+.pill {
+  font-size:10px;padding:4px 10px;border-radius:20px;
+  border:1px solid var(--border);
+  display:flex;align-items:center;gap:5px;
+  transition:all 0.3s;
+  opacity:0.4;
+}
+.pill.active { opacity:1; border-color:var(--pill-c); box-shadow:0 0 10px var(--pill-c-alpha); }
+.pill-dot { width:6px;height:6px;border-radius:50%;background:var(--pill-c);animation:blink 1s infinite; }
+
+.pill.planner  { --pill-c:var(--plan-c);   --pill-c-alpha:rgba(137,180,250,0.3); }
+.pill.coder    { --pill-c:var(--code-c);   --pill-c-alpha:rgba(166,227,161,0.3); }
+.pill.vision   { --pill-c:var(--vision-c); --pill-c-alpha:rgba(245,194,231,0.3); }
+.pill.reviewer { --pill-c:var(--review-c); --pill-c-alpha:rgba(250,179,135,0.3); }
+.pill.memory   { --pill-c:var(--memory-c); --pill-c-alpha:rgba(249,226,175,0.3); }
+
+/* ── TTS Toggle in header ────────────── */
+.tts-toggle {
+  display:flex;align-items:center;gap:7px;
+  padding:5px 12px;
+  border:1px solid var(--border);border-radius:20px;
+  cursor:pointer;transition:all 0.2s;
+  font-size:10px;color:var(--muted);
+  background:transparent;
+  font-family:'JetBrains Mono',monospace;
+  letter-spacing:0.5px;
+  flex-shrink:0;
+}
+.tts-toggle:hover { border-color:var(--tts-c);color:var(--tts-c); }
+.tts-toggle.on {
+  border-color:var(--tts-c);
+  color:var(--tts-c);
+  background:rgba(148,226,213,0.07);
+  box-shadow:0 0 10px rgba(148,226,213,0.15);
+}
+.tts-toggle .tts-dot {
+  width:6px;height:6px;border-radius:50%;
+  background:var(--muted);transition:background 0.2s;
+}
+.tts-toggle.on .tts-dot { background:var(--tts-c); animation:blink 1.5s infinite; }
+
+.header-right { display:flex;align-items:center;gap:8px; }
+
+/* Global TTS language selector in header */
+.lang-select {
+  font-size:10px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  color:var(--muted);
+  border-radius:8px;
+  padding:4px 8px;
+  font-family:'JetBrains Mono',monospace;
+  cursor:pointer;
+  transition:border-color 0.2s,color 0.2s;
+}
+.lang-select:focus { outline:none;border-color:var(--tts-c);color:var(--tts-c); }
+
+.clear-btn {
+  padding:6px 14px;background:transparent;
+  border:1px solid var(--border);border-radius:8px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--muted);cursor:pointer;transition:all 0.2s;letter-spacing:1px;
+}
+.clear-btn:hover{border-color:#f38ba8;color:#f38ba8;}
+
+/* ── Agent status bar ───────────────── */
+#statusBar {
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:8px 20px;
+  font-size:11px;color:var(--muted);
+  display:none;
+  align-items:center;gap:8px;
+  flex-shrink:0;
+  position:relative;z-index:5;
+  animation:slideDown 0.3s ease;
+}
+#statusBar.visible { display:flex; }
+.status-icon { font-size:14px; }
+#statusText { flex:1; }
+.status-steps {
+  display:flex;align-items:center;gap:4px;
+}
+.step {
+  width:24px;height:4px;border-radius:2px;
+  background:var(--border);transition:background 0.4s;
+}
+.step.done   { background:var(--plan-c); }
+.step.active { background:var(--done-c);animation:pulse 0.8s infinite; }
+
+/* ── TTS playing bar ─────────────────── */
+#ttsBar {
+  display:none;
+  align-items:center;gap:8px;
+  background:rgba(148,226,213,0.05);
+  border-bottom:1px solid rgba(148,226,213,0.15);
+  padding:7px 20px;
+  font-size:10px;color:var(--tts-c);
+  flex-shrink:0;
+  animation:slideDown 0.2s ease;
+}
+#ttsBar.visible { display:flex; }
+.tts-waves {
+  display:flex;align-items:center;gap:2px;flex-shrink:0;
+}
+.tts-waves span {
+  width:2px;border-radius:2px;
+  background:var(--tts-c);
+  animation:wave 0.7s ease-in-out infinite;
+}
+.tts-waves span:nth-child(1){height:5px;animation-delay:0s;}
+.tts-waves span:nth-child(2){height:10px;animation-delay:0.1s;}
+.tts-waves span:nth-child(3){height:7px;animation-delay:0.2s;}
+.tts-waves span:nth-child(4){height:12px;animation-delay:0.15s;}
+.tts-waves span:nth-child(5){height:5px;animation-delay:0.05s;}
+#ttsBarText { flex:1; }
+.tts-stop-btn {
+  background:none;border:1px solid rgba(148,226,213,0.3);
+  color:var(--tts-c);cursor:pointer;
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;padding:2px 8px;border-radius:4px;
+  transition:all 0.2s;
+}
+.tts-stop-btn:hover { background:rgba(148,226,213,0.1); }
+
+/* ── Messages ───────────────────────── */
+#messages {
+  flex:1;overflow-y:auto;
+  padding:20px 16px;
+  display:flex;flex-direction:column;gap:14px;
+  scroll-behavior:smooth;
+  position:relative;z-index:1;
+}
+#messages::-webkit-scrollbar{width:3px;}
+#messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+.empty-state {
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:10px;color:var(--muted);text-align:center;
+  padding:40px 20px;animation:fadeIn 0.5s ease;
+}
+.empty-state .icon{font-size:44px;margin-bottom:8px;}
+.empty-state h2{
+  font-family:'Syne',sans-serif;font-size:20px;font-weight:700;
+  background:linear-gradient(135deg,var(--plan-c),var(--done-c));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.empty-state p{font-size:11px;line-height:1.8;max-width:340px;color:var(--muted);}
+
+.pipeline-preview {
+  display:flex;align-items:center;gap:6px;
+  margin-top:12px;padding:12px 16px;
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  font-size:11px;
+}
+.pp-step{display:flex;align-items:center;gap:4px;}
+.pp-step span{padding:3px 8px;border-radius:5px;border:1px solid var(--border);}
+.pp-arrow{color:var(--muted);font-size:10px;}
+
+.suggestions{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px;}
+.suggestion{
+  padding:7px 12px;background:var(--panel);
+  border:1px solid var(--border);border-radius:20px;
+  font-size:10px;color:var(--muted);cursor:pointer;transition:all 0.2s;
+}
+.suggestion:hover{border-color:var(--plan-c);color:var(--plan-c);}
+
+.message{display:flex;gap:10px;max-width:820px;width:100%;animation:slideUp 0.3s ease;}
+.message.user{align-self:flex-end;flex-direction:row-reverse;}
+.message.ai{align-self:flex-start;}
+
+.avatar{
+  width:30px;height:30px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;flex-shrink:0;margin-top:2px;
+}
+.message.user .avatar{background:var(--user-bg);border:1px solid var(--border);}
+.message.ai   .avatar{background:var(--panel);border:1px solid var(--border);}
+
+.bubble-wrap { display:flex;flex-direction:column;gap:5px;max-width:calc(100% - 46px); }
+
+.bubble{
+  padding:12px 15px;border-radius:var(--radius);
+  font-size:12px;line-height:1.8;
+  white-space:pre-wrap;word-break:break-word;
+}
+.message.user .bubble{
+  background:var(--user-bg);
+  border:1px solid var(--border);
+  border-bottom-right-radius:4px;
+}
+.message.ai .bubble{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-bottom-left-radius:4px;
+}
+
+/* ── Per-message TTS controls ────────── */
+.msg-actions {
+  display:flex;align-items:center;gap:6px;
+  padding:0 4px;
+}
+.speak-btn {
+  display:flex;align-items:center;gap:5px;
+  padding:3px 10px;
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:20px;
+  color:var(--muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;letter-spacing:0.5px;
+  cursor:pointer;transition:all 0.2s;
+}
+.speak-btn:hover { border-color:var(--tts-c);color:var(--tts-c); }
+.speak-btn.playing {
+  border-color:var(--tts-c);color:var(--tts-c);
+  background:rgba(148,226,213,0.07);
+  animation:ttsGlow 1.5s ease-in-out infinite;
+}
+.speak-btn svg { flex-shrink:0; }
+
+/* Per-message language selector */
+.lang-pick {
+  font-size:9px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  color:var(--muted);
+  border-radius:6px;
+  padding:2px 6px;
+  font-family:'JetBrains Mono',monospace;
+  cursor:pointer;
+}
+.lang-pick:focus { outline:none;border-color:var(--tts-c); }
+
+@keyframes ttsGlow {
+  0%,100%{box-shadow:0 0 0 0 rgba(148,226,213,0);}
+  50%{box-shadow:0 0 8px rgba(148,226,213,0.3);}
+}
+
+.agent-tag {
+  font-size:9px;letter-spacing:1.5px;font-weight:700;
+  padding:2px 7px;border-radius:4px;
+  margin-bottom:6px;display:inline-block;
+  text-transform:uppercase;
+}
+.tag-code   {background:rgba(166,227,161,0.1);color:var(--code-c);}
+.tag-vision {background:rgba(245,194,231,0.1);color:var(--vision-c);}
+.tag-general{background:rgba(137,180,250,0.1);color:var(--plan-c);}
+.tag-error  {background:rgba(243,139,168,0.1);color:#f38ba8;}
+
+.bubble img.uploaded{max-width:180px;max-height:150px;border-radius:8px;display:block;margin-bottom:8px;object-fit:cover;}
+
+.typing{display:flex;gap:4px;padding:2px 0;align-items:center;}
+.typing span{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:bounce 1.2s infinite;}
+.typing span:nth-child(2){animation-delay:.2s;}
+.typing span:nth-child(3){animation-delay:.4s;}
+
+.bubble code{
+  background:rgba(255,255,255,0.05);
+  padding:2px 5px;border-radius:4px;font-size:11px;
+}
+.bubble pre{
+  background:rgba(0,0,0,0.4);border:1px solid var(--border);
+  border-radius:8px;padding:12px;margin:8px 0;
+  overflow-x:auto;font-size:11px;line-height:1.6;
+}
+
+/* ── Memory toast ────────────────────── */
+#memoryToast {
+  position:fixed;bottom:90px;right:20px;
+  background:rgba(249,226,175,0.1);
+  border:1px solid rgba(249,226,175,0.25);
+  color:var(--memory-c);
+  font-size:10px;padding:6px 12px;border-radius:8px;
+  display:none;z-index:100;
+  animation:slideUp 0.3s ease;
+  max-width:280px;
+  line-height:1.5;
+}
+#memoryToast.visible { display:block; }
+
+/* ── Input ──────────────────────────── */
+footer{
+  padding:14px;
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  flex-shrink:0;position:relative;z-index:5;
+}
+.input-wrap{
+  display:flex;align-items:flex-end;gap:8px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;padding:8px 10px;
+  transition:border-color 0.2s,box-shadow 0.2s;
+  max-width:900px;margin:0 auto;
+}
+.input-wrap:focus-within{
+  border-color:var(--plan-c);
+  box-shadow:0 0 0 3px rgba(137,180,250,0.08);
+}
+
+.img-btn{
+  background:none;border:none;cursor:pointer;
+  padding:4px;color:var(--muted);border-radius:6px;
+  flex-shrink:0;transition:color 0.2s;display:flex;align-items:center;
+}
+.img-btn:hover{color:var(--vision-c);}
+#file-input{display:none;}
+
+#img-preview-wrap{display:none;position:relative;flex-shrink:0;}
+#img-preview-wrap.visible{display:flex;}
+#img-preview{width:38px;height:38px;border-radius:7px;object-fit:cover;border:1px solid var(--border);}
+.remove-img{
+  position:absolute;top:-5px;right:-5px;
+  width:15px;height:15px;border-radius:50%;
+  background:var(--ink);color:var(--bg);
+  border:none;font-size:9px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+
+#prompt{
+  flex:1;border:none;background:transparent;
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;color:var(--ink);
+  resize:none;outline:none;max-height:120px;
+  line-height:1.6;padding:2px 0;
+}
+#prompt::placeholder{color:var(--muted);}
+
+.mic-btn {
+  width:32px;height:32px;border-radius:8px;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all 0.2s;
+}
+.mic-btn:hover { border-color:#89b4fa;color:#89b4fa; }
+.mic-btn.listening  { border-color:#f38ba8;color:#f38ba8;animation:micPulse 1s infinite; }
+.mic-btn.connecting { border-color:var(--review-c);color:var(--review-c);opacity:0.7; }
+
+#voice-bar {
+  display:none;
+  align-items:center;gap:8px;
+  max-width:900px;margin:6px auto 0;
+  padding:6px 12px;
+  background:rgba(137,180,250,0.06);
+  border:1px solid rgba(137,180,250,0.15);
+  border-radius:8px;
+  font-size:10px;color:var(--muted);
+  animation:slideDown 0.2s ease;
+}
+#voice-bar.visible { display:flex; }
+.voice-waves { display:flex;align-items:center;gap:2px;flex-shrink:0; }
+.voice-waves span {
+  width:2px;border-radius:2px;background:var(--plan-c);
+  animation:wave 0.8s ease-in-out infinite;
+}
+.voice-waves span:nth-child(1){height:6px;animation-delay:0s;}
+.voice-waves span:nth-child(2){height:12px;animation-delay:0.1s;}
+.voice-waves span:nth-child(3){height:8px;animation-delay:0.2s;}
+.voice-waves span:nth-child(4){height:14px;animation-delay:0.15s;}
+.voice-waves span:nth-child(5){height:6px;animation-delay:0.05s;}
+#voice-transcript { flex:1;color:var(--ink);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.voice-stop {
+  background:none;border:none;cursor:pointer;color:var(--muted);
+  font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);
+  font-family:'JetBrains Mono',monospace;transition:all 0.2s;flex-shrink:0;
+}
+.voice-stop:hover{border-color:#f38ba8;color:#f38ba8;}
+
+.send-btn{
+  width:32px;height:32px;border-radius:8px;
+  background:linear-gradient(135deg,var(--plan-c),var(--done-c));
+  border:none;color:#0d0d0f;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:transform 0.15s,opacity 0.15s;font-weight:700;
+}
+.send-btn:hover{transform:scale(1.05);}
+.send-btn:disabled{opacity:0.3;cursor:default;transform:none;}
+
+.footer-note{
+  text-align:center;font-size:9px;
+  color:var(--muted);margin-top:6px;letter-spacing:0.5px;
+}
+
+/* Animations */
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.2;}}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);}40%{transform:translateY(-5px);}}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes pulse{0%,100%{opacity:0.5;}50%{opacity:1;}}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(243,139,168,0.4);}50%{box-shadow:0 0 0 6px rgba(243,139,168,0);}}
+@keyframes wave{0%,100%{transform:scaleY(1);}50%{transform:scaleY(1.8);}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    🤖 Multi-Agent AI
+    <span class="logo-badge">ORCHESTRATED</span>
+  </div>
+
+  <div class="agent-pills">
+    <div class="pill memory"   id="pill-memory">   <div class="pill-dot"></div>Memory</div>
+    <div class="pill planner"  id="pill-planner">  <div class="pill-dot"></div>Planner</div>
+    <div class="pill coder"    id="pill-coder">    <div class="pill-dot"></div>Coder</div>
+    <div class="pill vision"   id="pill-vision">   <div class="pill-dot"></div>Vision</div>
+    <div class="pill reviewer" id="pill-reviewer"> <div class="pill-dot"></div>Reviewer</div>
+  </div>
+
+  <div class="header-right">
+    <!-- TTS language selector -->
+    <select class="lang-select" id="globalLang" title="TTS language">
+      <option value="en">🇬🇧 EN</option>
+      <option value="hi">🇮🇳 HI</option>
+      <option value="es">🇪🇸 ES</option>
+      <option value="fr">🇫🇷 FR</option>
+      <option value="de">🇩🇪 DE</option>
+      <option value="ja">🇯🇵 JA</option>
+      <option value="zh">🇨🇳 ZH</option>
+      <option value="pt">🇧🇷 PT</option>
+      <option value="ar">🇸🇦 AR</option>
+    </select>
+    <!-- TTS global toggle -->
+    <button class="tts-toggle" id="ttsToggle" onclick="toggleTTS()" title="Toggle auto text-to-speech (XTTS-v2)">
+      <div class="tts-dot"></div>
+      <span id="ttsToggleLabel">TTS OFF</span>
+    </button>
+    <button class="clear-btn" onclick="clearChat()">CLEAR</button>
+  </div>
+</header>
+
+<!-- Agent status bar -->
+<div id="statusBar">
+  <span class="status-icon" id="statusIcon">🧠</span>
+  <span id="statusText">Thinking...</span>
+  <div class="status-steps">
+    <div class="step" id="step1"></div>
+    <div class="step" id="step2"></div>
+    <div class="step" id="step3"></div>
+    <div class="step" id="step4"></div>
+    <div class="step" id="step5"></div>
+  </div>
+</div>
+
+<!-- TTS playing bar -->
+<div id="ttsBar">
+  <div class="tts-waves">
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+  <span id="ttsBarText">Speaking... (XTTS-v2)</span>
+  <button class="tts-stop-btn" onclick="stopTTS()">■ stop</button>
+</div>
+
+<!-- Memory toast notification -->
+<div id="memoryToast"></div>
+
+<!-- Messages -->
+<div id="messages">
+  <div class="empty-state" id="emptyState">
+    <div class="icon">🤖</div>
+    <h2>Multi-Agent System</h2>
+    <p>Every message goes through a 5-step pipeline: Memory → Planner → Task Agent → Reviewer → You</p>
+    <div class="pipeline-preview">
+      <div class="pp-step"><span style="color:var(--memory-c)">🗄 Memory</span></div>
+      <span class="pp-arrow">→</span>
+      <div class="pp-step"><span style="color:var(--plan-c)">🧠 Planner</span></div>
+      <span class="pp-arrow">→</span>
+      <div class="pp-step"><span style="color:var(--code-c)">💻 Coder</span></div>
+      <span class="pp-arrow">/</span>
+      <div class="pp-step"><span style="color:var(--vision-c)">👁 Vision</span></div>
+      <span class="pp-arrow">→</span>
+      <div class="pp-step"><span style="color:var(--review-c)">✨ Reviewer</span></div>
+    </div>
+    <div class="suggestions">
+      <div class="suggestion" onclick="useSuggestion(this)">Write a Python web scraper</div>
+      <div class="suggestion" onclick="useSuggestion(this)">Explain black holes simply</div>
+      <div class="suggestion" onclick="useSuggestion(this)">Debug this: for i in range(10) print(i)</div>
+      <div class="suggestion" onclick="useSuggestion(this)">Upload an image to analyze it 🖼</div>
+    </div>
+  </div>
+</div>
+
+<!-- Input -->
+<footer>
+  <div class="input-wrap">
+    <button class="img-btn" title="Attach image" onclick="document.getElementById('file-input').click()">
+      <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <path d="M21 15l-5-5L5 21"/>
+      </svg>
+    </button>
+    <input type="file" id="file-input" accept="image/*" onchange="handleImage(event)"/>
+
+    <div id="img-preview-wrap">
+      <img id="img-preview" src="" alt=""/>
+      <button class="remove-img" onclick="removeImage()">✕</button>
+    </div>
+
+    <textarea id="prompt" rows="1"
+      placeholder="Ask anything or press 🎤 to speak..."
+      onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+
+    <button class="mic-btn" id="micBtn" title="Click to speak" onclick="toggleMic()">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <rect x="9" y="2" width="6" height="11" rx="3"/>
+        <path d="M5 10a7 7 0 0 0 14 0" stroke-linecap="round"/>
+        <line x1="12" y1="19" x2="12" y2="22" stroke-linecap="round"/>
+        <line x1="8" y1="22" x2="16" y2="22" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <div id="voice-bar">
+    <div class="voice-waves">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <span id="voice-transcript">Listening...</span>
+    <button class="voice-stop" onclick="stopMic()">stop</button>
+  </div>
+
+  <!-- Updated footer note: XTTS-v2 (local) instead of Deepgram TTS -->
+  <div class="footer-note">🗄 Memory (Neo4j) · 🧠 Planner · 💻 Coder · 👁 Vision · ✨ Reviewer · 🎤 Deepgram STT · 🔊 XTTS-v2 (local)</div>
+</footer>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let history = [];
+let imageB64 = null;
+let imageType = null;
+let isStreaming = false;
+
+// Mic / STT
+let dgSocket = null;
+let mediaRecorder = null;
+let isListening = false;
+
+// TTS
+let ttsEnabled = false;
+let currentAudio = null;
+let currentSpeakBtn = null;
+
+// Memory toast timer
+let memoryToastTimer = null;
+
+// ── TTS Toggle ────────────────────────────────────────────────────────────────
+function toggleTTS() {
+  ttsEnabled = !ttsEnabled;
+  const btn = document.getElementById('ttsToggle');
+  const lbl = document.getElementById('ttsToggleLabel');
+  btn.classList.toggle('on', ttsEnabled);
+  lbl.textContent = ttsEnabled ? 'TTS ON' : 'TTS OFF';
+  if (!ttsEnabled) stopTTS();
+}
+
+// ── Core TTS: POST { text, language } to /api/tts (proxied to XTTS-v2) ───────
+async function speakText(text, language, speakBtn) {
+  if (!text || !text.trim()) return;
+
+  stopTTS();
+
+  // XTTS-v2 works best under 2000 chars (server also caps it)
+  const trimmed = text.length > 800 ? text.slice(0, 800) + '…' : text;
+
+  document.getElementById('ttsBar').classList.add('visible');
+  document.getElementById('ttsBarText').textContent = 'Generating voice (XTTS-v2)...';
+
+  if (speakBtn) {
+    speakBtn.classList.add('playing');
+    currentSpeakBtn = speakBtn;
+  }
+
+  try {
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Server expects { text, language } — no "voice" field for XTTS-v2
+      body: JSON.stringify({ text: trimmed, language: language || 'en' }),
+    });
+
+    if (!res.ok) {
+      let errMsg = '⚠️ TTS failed';
+      try {
+        const err = await res.json();
+        errMsg = '⚠️ ' + (err.error || errMsg);
+      } catch (_) {}
+      document.getElementById('ttsBarText').textContent = errMsg;
+      setTimeout(() => document.getElementById('ttsBar').classList.remove('visible'), 4000);
+      if (speakBtn) speakBtn.classList.remove('playing');
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    currentAudio = new Audio(url);
+
+    document.getElementById('ttsBarText').textContent = 'Speaking (XTTS-v2)...';
+
+    currentAudio.onended = () => { stopTTS(); URL.revokeObjectURL(url); };
+    currentAudio.onerror = () => { stopTTS(); URL.revokeObjectURL(url); };
+    currentAudio.play();
+
+  } catch (e) {
+    const msg = e.message.includes('fetch') || e.message.includes('connect')
+      ? '⚠️ XTTS-v2 service not running — start tts_server.py'
+      : '⚠️ ' + e.message;
+    document.getElementById('ttsBarText').textContent = msg;
+    setTimeout(() => document.getElementById('ttsBar').classList.remove('visible'), 4000);
+    if (speakBtn) speakBtn.classList.remove('playing');
+  }
+}
+
+function stopTTS() {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if (currentSpeakBtn) { currentSpeakBtn.classList.remove('playing'); currentSpeakBtn = null; }
+  document.getElementById('ttsBar').classList.remove('visible');
+}
+
+// ── Memory toast ──────────────────────────────────────────────────────────────
+function showMemoryToast(msg) {
+  const toast = document.getElementById('memoryToast');
+  toast.textContent = '🗄 ' + msg;
+  toast.classList.add('visible');
+  clearTimeout(memoryToastTimer);
+  memoryToastTimer = setTimeout(() => toast.classList.remove('visible'), 3500);
+}
+
+// ── Pill activation ───────────────────────────────────────────────────────────
+function activatePill(agent) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  const map = {
+    memory: 'memory', planner: 'planner',
+    code: 'coder', coder: 'coder',
+    vision: 'vision', reviewer: 'reviewer'
+  };
+  const pill = document.getElementById('pill-' + (map[agent] || agent));
+  if (pill) pill.classList.add('active');
+}
+function deactivateAllPills() {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+}
+
+// ── Status bar ────────────────────────────────────────────────────────────────
+// Pipeline: memory(1) → planner(2) → task(3) → reviewer(4) → stream(5)
+const STEP_ICONS = {
+  memory: '🗄', planner: '🧠', code: '💻',
+  vision: '👁', general: '💬', reviewer: '✨', done: '✅'
+};
+
+function setStatus(agent, text, stepNum) {
+  const bar = document.getElementById('statusBar');
+  bar.classList.add('visible');
+  document.getElementById('statusIcon').textContent = STEP_ICONS[agent] || '⚙️';
+  document.getElementById('statusText').textContent = text;
+  activatePill(agent);
+  if (stepNum !== undefined) {
+    for (let i = 1; i <= 5; i++) {
+      const s = document.getElementById('step' + i);
+      if (i < stepNum)        s.className = 'step done';
+      else if (i === stepNum) s.className = 'step active';
+      else                    s.className = 'step';
+    }
+  }
+}
+
+function hideStatus() {
+  document.getElementById('statusBar').classList.remove('visible');
+  deactivateAllPills();
+  for (let i = 1; i <= 5; i++) document.getElementById('step' + i).className = 'step';
+}
+
+// ── Image handling ────────────────────────────────────────────────────────────
+function handleImage(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const result = ev.target.result;
+    imageB64 = result.split(',')[1];
+    imageType = file.type;
+    document.getElementById('img-preview').src = result;
+    document.getElementById('img-preview-wrap').classList.add('visible');
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function removeImage() {
+  imageB64 = null; imageType = null;
+  document.getElementById('img-preview-wrap').classList.remove('visible');
+  document.getElementById('img-preview').src = '';
+}
+
+// ── Textarea helpers ──────────────────────────────────────────────────────────
+function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function handleKey(e)   { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function useSuggestion(el) {
+  document.getElementById('prompt').value = el.textContent;
+  autoResize(document.getElementById('prompt'));
+  document.getElementById('prompt').focus();
+}
+function scrollBottom() { const m=document.getElementById('messages'); m.scrollTop=m.scrollHeight; }
+
+function clearChat() {
+  history = []; removeImage(); stopTTS();
+  document.getElementById('messages').innerHTML = `
+    <div class="empty-state" id="emptyState">
+      <div class="icon">🤖</div>
+      <h2>Multi-Agent System</h2>
+      <p>Every message goes through a 5-step pipeline: Memory → Planner → Task Agent → Reviewer → You</p>
+      <div class="pipeline-preview">
+        <div class="pp-step"><span style="color:var(--memory-c)">🗄 Memory</span></div>
+        <span class="pp-arrow">→</span>
+        <div class="pp-step"><span style="color:var(--plan-c)">🧠 Planner</span></div>
+        <span class="pp-arrow">→</span>
+        <div class="pp-step"><span style="color:var(--code-c)">💻 Coder</span></div>
+        <span class="pp-arrow">/</span>
+        <div class="pp-step"><span style="color:var(--vision-c)">👁 Vision</span></div>
+        <span class="pp-arrow">→</span>
+        <div class="pp-step"><span style="color:var(--review-c)">✨ Reviewer</span></div>
+      </div>
+      <div class="suggestions">
+        <div class="suggestion" onclick="useSuggestion(this)">Write a Python web scraper</div>
+        <div class="suggestion" onclick="useSuggestion(this)">Explain black holes simply</div>
+        <div class="suggestion" onclick="useSuggestion(this)">Debug this: for i in range(10) print(i)</div>
+        <div class="suggestion" onclick="useSuggestion(this)">Upload an image to analyze it 🖼</div>
+      </div>
+    </div>`;
+}
+
+// ── Mic / Deepgram STT ────────────────────────────────────────────────────────
+async function toggleMic() {
+  if (isListening) stopMic(); else startMic();
+}
+
+async function startMic() {
+  const micBtn = document.getElementById('micBtn');
+  micBtn.classList.add('connecting');
+  try {
+    const { key } = await fetch('/api/deepgram-token').then(r => r.json());
+    dgSocket = new WebSocket(
+      'wss://api.deepgram.com/v1/listen?model=nova-2&language=en-US&smart_format=true&interim_results=true',
+      ['token', key]
+    );
+    dgSocket.onopen = async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorder.ondataavailable = (e) => {
+        if (dgSocket && dgSocket.readyState === WebSocket.OPEN) dgSocket.send(e.data);
+      };
+      mediaRecorder.start(250);
+      isListening = true;
+      micBtn.classList.remove('connecting');
+      micBtn.classList.add('listening');
+      document.getElementById('voice-bar').classList.add('visible');
+      document.getElementById('voice-transcript').textContent = 'Listening...';
+    };
+    dgSocket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const transcript = data.channel?.alternatives?.[0]?.transcript;
+      const isFinal = data.is_final;
+      if (!transcript) return;
+      if (isFinal) {
+        const promptEl = document.getElementById('prompt');
+        promptEl.value = transcript;
+        autoResize(promptEl);
+        document.getElementById('voice-transcript').textContent = transcript;
+        stopMic();
+        setTimeout(() => sendMessage(), 500);
+      } else {
+        document.getElementById('voice-transcript').textContent = transcript + '...';
+      }
+    };
+    dgSocket.onerror = () => { showVoiceError('Deepgram connection failed.'); stopMic(); };
+    dgSocket.onclose = () => { if (isListening) stopMic(); };
+  } catch (err) {
+    showVoiceError(err.message.includes('getUserMedia') ? 'Microphone access denied.' : 'Could not connect to Deepgram.');
+    micBtn.classList.remove('connecting');
+  }
+}
+
+function stopMic() {
+  isListening = false;
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    mediaRecorder.stream?.getTracks().forEach(t => t.stop());
+  }
+  if (dgSocket) { dgSocket.close(); dgSocket = null; }
+  document.getElementById('micBtn').classList.remove('listening', 'connecting');
+  document.getElementById('voice-bar').classList.remove('visible');
+}
+
+function showVoiceError(msg) {
+  const bar = document.getElementById('voice-bar');
+  bar.classList.add('visible');
+  document.getElementById('voice-transcript').textContent = '⚠️ ' + msg;
+  document.querySelector('.voice-waves').style.display = 'none';
+  setTimeout(() => {
+    bar.classList.remove('visible');
+    document.querySelector('.voice-waves').style.display = 'flex';
+  }, 3000);
+}
+
+// ── Render helpers ────────────────────────────────────────────────────────────
+function appendMessage(role, text, imgSrc) {
+  document.getElementById('emptyState')?.remove();
+  const msgs = document.getElementById('messages');
+  const wrap = document.createElement('div');
+  wrap.className = `message ${role}`;
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  avatar.textContent = role === 'user' ? '👤' : '🤖';
+  const bubbleWrap = document.createElement('div');
+  bubbleWrap.className = 'bubble-wrap';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (imgSrc) {
+    const img = document.createElement('img');
+    img.src = imgSrc; img.className = 'uploaded';
+    bubble.appendChild(img);
+  }
+  const txt = document.createElement('span');
+  txt.textContent = text;
+  bubble.appendChild(txt);
+  bubbleWrap.appendChild(bubble);
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubbleWrap);
+  msgs.appendChild(wrap);
+  scrollBottom();
+  return txt;
+}
+
+function appendAIBubble(decision) {
+  document.getElementById('emptyState')?.remove();
+  const msgs = document.getElementById('messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'message ai'; wrap.id = 'ai-row';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar'; avatar.textContent = '🤖';
+
+  const bubbleWrap = document.createElement('div');
+  bubbleWrap.className = 'bubble-wrap';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+
+  const tagMap   = { code:'tag-code', vision:'tag-vision', general:'tag-general' };
+  const labelMap = { code:'💻 Coder Agent', vision:'👁 Vision Agent', general:'🧠 General Agent' };
+  if (decision) {
+    const tag = document.createElement('div');
+    tag.className = `agent-tag ${tagMap[decision] || 'tag-general'}`;
+    tag.textContent = labelMap[decision] || 'Agent';
+    bubble.appendChild(tag);
+  }
+
+  const typing = document.createElement('div');
+  typing.className = 'typing'; typing.id = 'typing-ind';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  bubble.appendChild(typing);
+
+  const txt = document.createElement('span'); txt.id = 'ai-text';
+  bubble.appendChild(txt);
+  bubbleWrap.appendChild(bubble);
+
+  // ── TTS action bar: speak button + language selector ──────────────────────
+  const actions = document.createElement('div');
+  actions.className = 'msg-actions'; actions.id = 'msg-actions-pending';
+
+  // Language selector (XTTS-v2 supports multilingual cloning)
+  const langPick = document.createElement('select');
+  langPick.className = 'lang-pick';
+  [
+    { value:'en', label:'EN' }, { value:'hi', label:'HI' },
+    { value:'es', label:'ES' }, { value:'fr', label:'FR' },
+    { value:'de', label:'DE' }, { value:'ja', label:'JA' },
+    { value:'zh', label:'ZH' }, { value:'pt', label:'PT' },
+    { value:'ar', label:'AR' },
+  ].forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l.value; opt.textContent = l.label;
+    // Sync to global lang selector default
+    if (l.value === (document.getElementById('globalLang')?.value || 'en')) opt.selected = true;
+    langPick.appendChild(opt);
+  });
+
+  // Speak button
+  const speakBtn = document.createElement('button');
+  speakBtn.className = 'speak-btn';
+  speakBtn.innerHTML = `
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <polygon points="5 3 19 12 5 21 5 3"/>
+    </svg>
+    SPEAK`;
+
+  speakBtn.onclick = () => {
+    const fullText = txt.textContent;
+    if (speakBtn.classList.contains('playing')) {
+      stopTTS();
+    } else {
+      speakBtn.innerHTML = `
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+        STOP`;
+      speakText(fullText, langPick.value, speakBtn).then(() => {
+        speakBtn.innerHTML = `
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          SPEAK`;
+      });
+    }
+  };
+
+  actions.appendChild(speakBtn);
+  actions.appendChild(langPick);
+  bubbleWrap.appendChild(actions);
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubbleWrap);
+  msgs.appendChild(wrap);
+  scrollBottom();
+
+  // store refs for auto-TTS
+  wrap._speakBtn = speakBtn;
+  wrap._langPick = langPick;
+  wrap._txt = txt;
+
+  return txt;
+}
+
+// ── Main send ─────────────────────────────────────────────────────────────────
+async function sendMessage() {
+  if (isStreaming) return;
+  const input = document.getElementById('prompt');
+  const text = input.value.trim();
+  if (!text && !imageB64) return;
+
+  isStreaming = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  const imgSrc = imageB64 ? `data:${imageType};base64,${imageB64}` : null;
+  const userMsg = { role: 'user', content: text };
+  if (imageB64) userMsg.images = [imageB64];
+  history.push(userMsg);
+
+  appendMessage('user', text, imgSrc);
+  input.value = ''; input.style.height = 'auto';
+  removeImage();
+
+  // Step 1 = memory recall
+  setStatus('memory', 'Loading memories from Neo4j...', 1);
+
+  let aiTextNode = null;
+  let aiRow = null;
+  let decision = null;
+  let fullReply = '';
+  let started = false;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: history }),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const lines = decoder.decode(value).split('\n').filter(l => l.startsWith('data: '));
+      for (const line of lines) {
+        const json = JSON.parse(line.slice(6));
+
+        // ── Memory events (step 1 & 4 in server pipeline) ──
+        if (json.agent === 'memory') {
+          setStatus('memory', json.status, 1);
+          // Show toast for memory save events (they come after reviewer)
+          if (json.status && (json.status.includes('Remembered') || json.status.includes('Recalled'))) {
+            showMemoryToast(json.status);
+          }
+
+        // ── Planner decision ──
+        } else if (json.agent === 'planner' && json.decision) {
+          decision = json.decision;
+          setStatus(decision, json.status, 3);
+
+        // ── Other agent status updates ──
+        } else if (json.agent && json.agent !== 'done' && !json.token) {
+          const stepMap = { memory:1, planner:2, code:3, vision:3, general:3, reviewer:4, done:5 };
+          setStatus(json.agent, json.status, stepMap[json.agent] || 3);
+
+        // ── "done" signals start of token streaming ──
+        } else if (json.agent === 'done') {
+          setStatus('done', 'Streaming final response...', 5);
+          aiTextNode = appendAIBubble(decision);
+          aiRow = document.getElementById('ai-row');
+
+        // ── Token chunk ──
+        } else if (json.token) {
+          if (!started) {
+            document.getElementById('typing-ind')?.remove();
+            started = true;
+          }
+          fullReply += json.token;
+          if (aiTextNode) aiTextNode.textContent = fullReply;
+          scrollBottom();
+
+        // ── Error ──
+        } else if (json.error) {
+          if (!aiTextNode) aiTextNode = appendAIBubble(null);
+          document.getElementById('typing-ind')?.remove();
+          aiTextNode.textContent = '⚠️ ' + json.error;
+        }
+      }
+    }
+
+    if (fullReply) {
+      history.push({ role: 'assistant', content: fullReply });
+
+      // Auto-TTS if enabled — use global language selector value
+      if (ttsEnabled && aiRow) {
+        const lang = document.getElementById('globalLang')?.value || 'en';
+        const btn = aiRow._speakBtn;
+        if (btn) btn.innerHTML = `
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+          </svg>
+          STOP`;
+        speakText(fullReply, lang, btn).then(() => {
+          if (btn) btn.innerHTML = `
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            SPEAK`;
+        });
+      }
+    }
+
+  } catch (e) {
+    if (!aiTextNode) aiTextNode = appendAIBubble(null);
+    document.getElementById('typing-ind')?.remove();
+    aiTextNode.textContent = '⚠️ Cannot connect. Make sure the server is running: node server.js';
+  }
+
+  hideStatus();
+  isStreaming = false;
+  document.getElementById('sendBtn').disabled = false;
+  input.focus();
+}
+</script>
+</body>
+</html>
