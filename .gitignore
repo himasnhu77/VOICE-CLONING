@@ -1,0 +1,9 @@
+node_modules/
+.env
+uploads/*.wav
+uploads/*.mp3
+uploads/*.ogg
+uploads/*.m4a
+uploads/*.webm
+*.DS_Store
+__pycache__/
